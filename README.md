@@ -17,7 +17,7 @@ This project is intended to be installed on:
 - **Raspberry Pi Pico 2 W**
 - together with a **dedicated expansion board** (I/O and power handling for LED strip / actuators).
 
-The code uses specific GPIO pins (including 18, 19, 20), so hardware compatibility with the target expansion module is assumed.
+Default GPIO pins are `sensor=18`, `pixel=19`, and `off=20`. They can be changed in `gpio.json` or through the administrator-only `api/secure/gpio` endpoint, so hardware compatibility with the target expansion module should be verified after every GPIO change.
 
 ---
 
@@ -57,10 +57,30 @@ A static file with device metadata and security settings:
 - `users.json` – users, passwords, tokens
 - `groups.json` – role mapping (`admin`, `designer`, `editor`)
 - `data.json` – device runtime configuration (e.g. `pixelProgram`, `brightness`, `stepTime`, `onTime`, `offTime`, `on`, `nol`, ...)
+- `gpio.json` – GPIO port numbers used by the device (`pixel`, `sensor`, `off`)
 - `pixelprograms.json` – list of pixel animation programs
 - log file (`logging.log_file`, depending on `phew.logging` setup)
 
 > On first startup, the backend ensures a default RBAC structure (roles + `admin` account).
+
+
+### 3.3 `gpio.json`
+GPIO configuration is loaded from `gpio.json` at startup and refreshed by the runtime driver. Default content:
+
+```json
+{
+  "pixel": 19,
+  "sensor": 18,
+  "off": 20
+}
+```
+
+Fields:
+- `pixel` – GPIO number for the LED strip data line,
+- `sensor` – GPIO number for the input sensor (`Pin.IN`, `Pin.PULL_UP`),
+- `off` – GPIO number for the output used when the controller is inactive.
+
+Accepted values are integers from `0` to `28`. Invalid or missing values are replaced by defaults when the file is normalized.
 
 ---
 
@@ -283,6 +303,55 @@ Returns `secured` section from `config.py`.
 
 ---
 
+
+### `GET /api/secure/gpio`
+Returns current GPIO configuration from `gpio.json`.
+
+- Required role: `admin`
+
+**200 OK**
+```json
+{
+  "gpio": {"pixel":19,"sensor":18,"off":20},
+  "newCredentials": {"user":"admin","token":"..."}
+}
+```
+
+---
+
+### `PUT /api/secure/gpio`
+Replaces full GPIO configuration.
+
+### `PATCH /api/secure/gpio`
+Partially updates GPIO configuration.
+
+- Required role: `admin`
+- Accepted fields: `pixel`, `sensor`, `off`
+- Accepted values: integers from `0` to `28`
+- The backend saves normalized values to `gpio.json` and applies changed pins to the running driver.
+
+**Body (JSON)**
+```json
+{
+  "pixel": 19,
+  "sensor": 18,
+  "off": 20
+}
+```
+
+**202 Accepted**
+```json
+{
+  "before": {"pixel":19,"sensor":18,"off":20},
+  "after": {"pixel":21,"sensor":18,"off":20},
+  "newCredentials": {"user":"admin","token":"..."}
+}
+```
+
+**Errors:** `400`, `401`, `403`, `500`.
+
+---
+
 ### `GET /api/secure/users`
 Returns mapping of users to roles.
 
@@ -413,6 +482,16 @@ curl -X PATCH http://<DEVICE_IP>/api/data \
   -d '{"brightness":128,"on":true}'
 ```
 
+
+### GPIO configuration update (PATCH /api/secure/gpio)
+```bash
+curl -X PATCH http://<DEVICE_IP>/api/secure/gpio \
+  -H "Content-Type: application/json" \
+  -H "user: admin" \
+  -H "token: <TOKEN>" \
+  -d '{"pixel":21}'
+```
+
 ### Admin password reset with `secure`
 ```bash
 curl -X POST http://<DEVICE_IP>/api/secure/admin/reset \
@@ -438,13 +517,14 @@ A practical and safe deployment path:
    - Copy to device storage:
      - `main.py`, `myhttp.py`, `waterflowdriver.py`, `waterflowpixel.py`, `auth.py`, `utils.py`, `config.py`, `ktime.py`, `neopixel.py`
      - `lib/` folder
-     - required JSON files (`net.json`, `users.json`, `groups.json`, `data.json`, `pixelprograms.json`) configured for your environment.
+     - required JSON files (`net.json`, `users.json`, `groups.json`, `data.json`, `gpio.json`, `pixelprograms.json`) configured for your environment.
 
 3. **Adjust configuration before first run**
    - Set unique values in `config.py`, especially:
      - `secured['secure']`
      - `device['uuid']`
    - Set Wi‑Fi/AP credentials in `net.json`.
+   - Verify GPIO numbers in `gpio.json` for your expansion board.
 
 4. **Restart and test API**
    - Restart device (soft/hard reset).
