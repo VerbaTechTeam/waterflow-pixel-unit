@@ -170,13 +170,7 @@ def get_secure(request):
 
 @server.route("/api/secure/gpio", methods=["GET"])
 def get_gpio(request):
-    user = auth.authenticate(request)
-    if not user:
-        return json.dumps({"message": "Unauthorized"}), 401, {"Content-type": "application/json"}
-    if not auth.authorize(user, ["admin"]):
-        return json.dumps({"message": "Forbidden"}), 403, {"Content-type": "application/json"}
-    newCredentials = auth.refresh_token(user)
-    return json.dumps({'gpio': load_gpio_config(), 'newCredentials': newCredentials}), 200, {"Content-type": "application/json"}
+    return json.dumps(load_gpio_config()), 200, {"Content-type": "application/json"}
 
 @server.route("/api/secure/gpio", methods=["PUT", "PATCH"])
 def change_gpio(request):
@@ -186,7 +180,7 @@ def change_gpio(request):
     if not auth.authorize(user, ["admin"]):
         return json.dumps({"message": "Forbidden"}), 403, {"Content-type": "application/json"}
 
-    allowed_keys = ['pixel', 'sensor', 'off']
+    allowed_keys = ['dout', 'sensor', 'off']
     data = request.data
     for key in data:
         if key not in allowed_keys:

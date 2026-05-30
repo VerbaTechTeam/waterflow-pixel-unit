@@ -19,7 +19,7 @@ def save_json(filename, content):
         return False
 
 DEFAULT_GPIO = {
-    'pixel': 19,
+    'dout': 19,
     'sensor': 18,
     'off': 20
 }

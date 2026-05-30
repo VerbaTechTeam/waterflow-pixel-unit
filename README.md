@@ -17,7 +17,7 @@ This project is intended to be installed on:
 - **Raspberry Pi Pico 2 W**
 - together with a **dedicated expansion board** (I/O and power handling for LED strip / actuators).
 
-Default GPIO pins are `sensor=18`, `pixel=19`, and `off=20`. They can be changed in `gpio.json` or through the administrator-only `api/secure/gpio` endpoint, so hardware compatibility with the target expansion module should be verified after every GPIO change.
+Default GPIO pins are `sensor=18`, `dout=19`, and `off=20`. They can be changed in `gpio.json` or through the `api/secure/gpio` endpoint. Reading this endpoint is public; changing values requires an administrator. Hardware compatibility with the target expansion module should be verified after every GPIO change.
 
 ---
 
@@ -57,7 +57,7 @@ A static file with device metadata and security settings:
 - `users.json` – users, passwords, tokens
 - `groups.json` – role mapping (`admin`, `designer`, `editor`)
 - `data.json` – device runtime configuration (e.g. `pixelProgram`, `brightness`, `stepTime`, `onTime`, `offTime`, `on`, `nol`, ...)
-- `gpio.json` – GPIO port numbers used by the device (`pixel`, `sensor`, `off`)
+- `gpio.json` – GPIO port numbers used by the device (`dout`, `sensor`, `off`)
 - `pixelprograms.json` – list of pixel animation programs
 - log file (`logging.log_file`, depending on `phew.logging` setup)
 
@@ -69,14 +69,14 @@ GPIO configuration is loaded from `gpio.json` at startup and refreshed by the ru
 
 ```json
 {
-  "pixel": 19,
+  "dout": 19,
   "sensor": 18,
   "off": 20
 }
 ```
 
 Fields:
-- `pixel` – GPIO number for the LED strip data line,
+- `dout` – GPIO number for the LED strip data line,
 - `sensor` – GPIO number for the input sensor (`Pin.IN`, `Pin.PULL_UP`),
 - `off` – GPIO number for the output used when the controller is inactive.
 
@@ -305,16 +305,11 @@ Returns `secured` section from `config.py`.
 
 
 ### `GET /api/secure/gpio`
-Returns current GPIO configuration from `gpio.json`.
-
-- Required role: `admin`
+Returns current GPIO configuration from `gpio.json`. This read endpoint is public and does not refresh or return an access token.
 
 **200 OK**
 ```json
-{
-  "gpio": {"pixel":19,"sensor":18,"off":20},
-  "newCredentials": {"user":"admin","token":"..."}
-}
+{"dout":19,"sensor":18,"off":20}
 ```
 
 ---
@@ -326,14 +321,14 @@ Replaces full GPIO configuration.
 Partially updates GPIO configuration.
 
 - Required role: `admin`
-- Accepted fields: `pixel`, `sensor`, `off`
+- Accepted fields: `dout`, `sensor`, `off`
 - Accepted values: integers from `0` to `28`
 - The backend saves normalized values to `gpio.json` and applies changed pins to the running driver.
 
 **Body (JSON)**
 ```json
 {
-  "pixel": 19,
+  "dout": 19,
   "sensor": 18,
   "off": 20
 }
@@ -342,8 +337,8 @@ Partially updates GPIO configuration.
 **202 Accepted**
 ```json
 {
-  "before": {"pixel":19,"sensor":18,"off":20},
-  "after": {"pixel":21,"sensor":18,"off":20},
+  "before": {"dout":19,"sensor":18,"off":20},
+  "after": {"dout":21,"sensor":18,"off":20},
   "newCredentials": {"user":"admin","token":"..."}
 }
 ```
@@ -489,7 +484,7 @@ curl -X PATCH http://<DEVICE_IP>/api/secure/gpio \
   -H "Content-Type: application/json" \
   -H "user: admin" \
   -H "token: <TOKEN>" \
-  -d '{"pixel":21}'
+  -d '{"dout":21}'
 ```
 
 ### Admin password reset with `secure`

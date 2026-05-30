@@ -19,7 +19,7 @@ class WaterflowDriver:
         self.offTime = 28800
         self.timeDependency = True
         self.nol = 3
-        self.waterflow = WaterflowPixel(self.nol, 0, self.gpio['pixel'])
+        self.waterflow = WaterflowPixel(self.nol, 0, self.gpio['dout'])
         self.sensorPin = Pin(self.gpio['sensor'], Pin.IN, Pin.PULL_UP)
         self.brightness = 255
         self.pixels = []
@@ -49,9 +49,9 @@ class WaterflowDriver:
                 self.offPin = Pin(self.gpio['off'], Pin.OUT, value=0)
             if previous.get('sensor') != self.gpio['sensor']:
                 self.sensorPin = Pin(self.gpio['sensor'], Pin.IN, Pin.PULL_UP)
-            if previous.get('pixel') != self.gpio['pixel']:
+            if previous.get('dout') != self.gpio['dout']:
                 self.waterflow.removeAll()
-                self.waterflow = WaterflowPixel(self.waterflow.strip.num_leds, 0, self.gpio['pixel'])
+                self.waterflow = WaterflowPixel(self.waterflow.strip.num_leds, 0, self.gpio['dout'])
             logging.info(f"> GPIO configuration changed from {previous} to {self.gpio}")
             return True
         return False
