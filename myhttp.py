@@ -7,7 +7,7 @@ import config
 from waterflowdriver import WaterflowDriver
 import ubinascii
 import auth
-from utils import load_json, save_json
+from utils import load_json, save_json, load_gpio_config
 
 
 net = load_json('net.json')
@@ -166,6 +166,40 @@ def get_secure(request):
         return json.dumps({"message": "Forbidden"}), 403, {"Content-type": "application/json"}
     newCredentials = auth.refresh_token(user)
     return json.dumps({'secure': config.secured, 'newCredentials': newCredentials}), 200, {"Content-type": "application/json"}
+
+
+@server.route("/api/secure/gpio", methods=["GET"])
+def get_gpio(request):
+    return json.dumps(load_gpio_config()), 200, {"Content-type": "application/json"}
+
+@server.route("/api/secure/gpio", methods=["PUT", "PATCH"])
+def change_gpio(request):
+    user = auth.authenticate(request)
+    if not user:
+        return json.dumps({"message": "Unauthorized"}), 401, {"Content-type": "application/json"}
+    if not auth.authorize(user, ["admin"]):
+        return json.dumps({"message": "Forbidden"}), 403, {"Content-type": "application/json"}
+
+    allowed_keys = ['dout', 'sensor', 'off']
+    data = request.data
+    for key in data:
+        if key not in allowed_keys:
+            return json.dumps({"message": "Bad Request"}), 400, {"Content-type": "application/json"}
+        value = data[key]
+        if not isinstance(value, int) or value < 0 or value > 28:
+            return json.dumps({"message": "Bad Request"}), 400, {"Content-type": "application/json"}
+
+    old = load_gpio_config()
+    new = data
+    if request.method == "PATCH":
+        new = old.copy()
+        new.update(data)
+
+    if driver.configure_gpio(new):
+        newCredentials = auth.refresh_token(user)
+        return json.dumps({'before': old, 'after': load_gpio_config(), 'newCredentials': newCredentials}), 202, {"Content-type": "application/json"}
+    else:
+        return json.dumps({'message': 'Internal Server Error'}), 500, {"Content-type": "application/json"}
 
 @server.route("/api/secure/users", methods=["GET"])
 def list_users_groups(request):

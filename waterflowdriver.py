@@ -2,6 +2,7 @@ from waterflowpixel import WaterflowPixel
 from phew import logging
 from machine import Pin
 from ktime import LocalTime
+from utils import load_gpio_config, save_gpio_config
 import time, _thread
 import ujson as json
 import uasyncio
@@ -9,7 +10,8 @@ import uasyncio
 class WaterflowDriver:
     
     def __init__(self):
-        self.offPin = Pin(20, Pin.OUT, value=0)
+        self.gpio = load_gpio_config()
+        self.offPin = Pin(self.gpio['off'], Pin.OUT, value=0)
         self.restartCountdown = -1
         self.time = LocalTime()
         self.time.timeZoneRTCCorrection()
@@ -17,8 +19,8 @@ class WaterflowDriver:
         self.offTime = 28800
         self.timeDependency = True
         self.nol = 3
-        self.waterflow = WaterflowPixel(self.nol, 0, 19)
-        self.sensorPin = Pin(18, Pin.IN, Pin.PULL_UP)
+        self.waterflow = WaterflowPixel(self.nol, 0, self.gpio['dout'])
+        self.sensorPin = Pin(self.gpio['sensor'], Pin.IN, Pin.PULL_UP)
         self.brightness = 255
         self.pixels = []
         self.alive = False
@@ -37,6 +39,28 @@ class WaterflowDriver:
     def setOperatingTime(self, start: LocalTime, end: LocalTime):
         self.onTime = start.timestamp()
         self.offTime = end.timestamp()
+
+    def configure_gpio(self, gpio):
+        previous = self.gpio.copy()
+        if save_gpio_config(gpio):
+            self.gpio = load_gpio_config()
+            if previous.get('off') != self.gpio['off']:
+                self.offPin.value(0)
+                self.offPin = Pin(self.gpio['off'], Pin.OUT, value=0)
+            if previous.get('sensor') != self.gpio['sensor']:
+                self.sensorPin = Pin(self.gpio['sensor'], Pin.IN, Pin.PULL_UP)
+            if previous.get('dout') != self.gpio['dout']:
+                self.waterflow.removeAll()
+                self.waterflow = WaterflowPixel(self.waterflow.strip.num_leds, 0, self.gpio['dout'])
+            logging.info(f"> GPIO configuration changed from {previous} to {self.gpio}")
+            return True
+        return False
+
+    def reload_gpio(self):
+        gpio = load_gpio_config()
+        if gpio != self.gpio:
+            return self.configure_gpio(gpio)
+        return True
     
     def current_state(self):
         state = self.on
@@ -87,6 +111,7 @@ class WaterflowDriver:
         if (len(self.pixels) == 0):
             lock = uasyncio.Lock()
             async with lock:
+                self.reload_gpio()
                 try:
                     with open('data.json', 'r') as f:
                         self.data = json.load(f)
