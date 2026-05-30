@@ -73,7 +73,7 @@ def remove_user_with_groups(username):
     if username == 'admin':
         return False
     users = load_json('users.json')
-    if username in users:
+    if username not in users:
         return False
     del users[username]
     if not save_json('users.json', users):

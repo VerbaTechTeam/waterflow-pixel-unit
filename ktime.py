@@ -54,10 +54,10 @@ class LocalTime:
                 if month in (1,3,5,7,8,10,12):
                     mday = 31;
                 elif month == 2:
-                    if year % 4 == 0 or (year % 4 == 0 and year % 100 == 0 and year % 400 != 0):
-                        mday = 29;
+                    if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0):
+                        mday = 29
                     else:
-                        mday = 29;
+                        mday = 28
                 else:
                     mday = 30;
                 
