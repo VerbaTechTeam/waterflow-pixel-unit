@@ -9,6 +9,7 @@ import uasyncio
 class WaterflowDriver:
     
     def __init__(self):
+        self._data_lock = uasyncio.Lock()
         self.offPin = Pin(20, Pin.OUT, value=0)
         self.restartCountdown = -1
         self.time = LocalTime()
@@ -85,8 +86,7 @@ class WaterflowDriver:
                 import machine
                 machine.soft_reset()
         if (len(self.pixels) == 0):
-            lock = uasyncio.Lock()
-            async with lock:
+            async with self._data_lock:
                 try:
                     with open('data.json', 'r') as f:
                         self.data = json.load(f)
@@ -119,9 +119,17 @@ class WaterflowDriver:
                         self.programs = json.load(f)
                 except:
                     print("Cannot open pixelprograms.json")
-            self.pixels = self.programs[self.pixelProgram]
-        if (self.nextPixel is None):
-            self.nextPixel = self.pixels.pop(0)
+            if self.programs and self.pixelProgram < len(self.programs):
+                self.pixels = self.programs[self.pixelProgram]
+            else:
+                self.pixels = []
+                logging.error("> Invalid pixelProgram index or empty programs list")
+        if self.nextPixel is None:
+            if self.pixels:
+                self.nextPixel = self.pixels.pop(0)
+            else:
+                self.nextPixel = (0, 0, 0)  # fallback na czerń
+                logging.warn("> Empty pixel program, using fallback color")
     
     async def update(self):
         await uasyncio.create_task(self.prepareStep())
