@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Syntax check (app + scripts)
+        run: |
+          python -m compileall -q \
+            main.py myhttp.py auth.py utils.py \
+            waterflowdriver.py waterflowpixel.py neopixel.py ktime.py \
+            version.py config.py \
+            scripts
+          if [ -f ota.py ]; then python -m compileall -q ota.py; fi
+
+      - name: Build release artifacts (dry-run)
+        run: python scripts/build_release.py --version 0.0.0-ci --out dist-ci
+
+      - name: Verify manifest
+        run: |
+          test -f dist-ci/manifest.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("dist-ci/manifest.json").read_text(encoding="utf-8"))
+          assert manifest.get("version") == "0.0.0-ci", manifest.get("version")
+          assert isinstance(manifest.get("files"), list) and manifest["files"], "files empty"
+          for entry in manifest["files"]:
+              asset = Path("dist-ci") / entry["asset"]
+              assert asset.is_file(), f"missing asset {entry['asset']}"
+              assert entry.get("path") and entry.get("sha256")
+          print(f"OK: {len(manifest['files'])} assets")
+          PY
